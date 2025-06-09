@@ -1,5 +1,5 @@
 # VS Code 扩展下载器忽略规则
-
+temp_chrome_data/
 # 下载的插件目录
 /vsix_files/
 
