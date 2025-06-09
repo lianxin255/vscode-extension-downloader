@@ -1,0 +1,26 @@
+# VS Code 扩展下载器忽略规则
+
+# 下载的插件目录
+/vsix_files/
+
+# 插件列表文件
+extensions.txt
+
+# 日志文件
+*.log
+
+# 压缩包
+*.zip
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE 特定文件
+.vscode/
+.idea/
+
+# 系统文件
+.DS_Store
+Thumbs.db
