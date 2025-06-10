@@ -3,17 +3,16 @@ FilePath: download_vsix.py
 Author: lianxin
 Date: 2025-06-05 16:15:20
 LastEditors: lianxin
-LastEditTime: 2025-06-09 10:43:32
+LastEditTime: 2025-06-09 14:09:59
 Copyright (c) 2025 by lianxin, email: wsl1933467270@gamil.com, All Rights Reserved.
 Descripttion: 批量下载VS Code扩展的VSIX文件
 '''
 import os
 import logging
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
 
 # 配置日志
 logging.basicConfig(
@@ -32,13 +31,22 @@ def read_extensions(file_path):
         return [line.strip() for line in f.readlines() 
                 if line.strip() and not line.startswith('//')]
 
-def get_chrome_options(output_dir=None):
+def get_chrome_options(output_dir=None, extension_id=None):
     """获取Chrome配置选项"""
+    # 为会话创建一个唯一的标识符，以确保每个Chrome实例都是独立的
+    if extension_id:
+        # 清理扩展ID，使其适用于目录名
+        sanitized_ext_id = "".join(c for c in extension_id if c.isalnum() or c in ('.', '-', '_')).rstrip()
+        session_id = f'session_{sanitized_ext_id}_{int(time.time() * 1000)}'
+    else:
+        # 用于环境检查的会话
+        session_id = f'env_check_{int(time.time() * 1000)}'
+        
     # 创建临时用户数据目录
     temp_dir = os.path.join(
         os.path.dirname(__file__), 
         'temp_chrome_data', 
-        f'session_{int(time.time())}'
+        session_id
     )
     if not os.path.exists(temp_dir):
         os.makedirs(temp_dir)
@@ -95,7 +103,7 @@ def download_vsix_selenium(extension_id, output_dir, max_retries=3):
     retry_count = 0
     
     while retry_count < max_retries:
-        chrome_options, temp_dir = get_chrome_options(output_dir)
+        chrome_options, temp_dir = get_chrome_options(output_dir, extension_id)
         driver = None
         try:
             retry_count += 1
@@ -182,9 +190,6 @@ def batch_download(extensions, output_dir, max_workers=3):
         os.makedirs(output_dir)
         logging.info(f"创建输出目录: {output_dir}")
     
-    # 实现并发下载
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-    
     total = len(extensions)
     success_count = 0
     fail_count = 0
@@ -225,18 +230,22 @@ def batch_download(extensions, output_dir, max_workers=3):
 if __name__ == "__main__":
     # 从txt文件读取扩展列表
     try:
+        # 从环境变量读取配置
+        output_dir = os.getenv('VSIX_DOWNLOAD_PATH', 'vsix_files')
+        max_workers = int(os.getenv('VSIX_MAX_WORKERS', '3')) # 默认为3个线程
+
         extensions_file = os.path.join(os.path.dirname(__file__), 'extensions.txt')
         extensions = read_extensions(extensions_file)
-        output_dir = "vsix_files"  # 下载文件保存的目录
         
         print("="*50)
         print(f"VSIX下载器 v1.2 (插件增强版)")
         print(f"扩展列表: {extensions_file}")
         print(f"输出目录: {os.path.abspath(output_dir)}")
+        print(f"最大并发数: {max_workers}")
         print(f"找到 {len(extensions)} 个扩展")
         print("="*50)
         
-        batch_download(extensions, output_dir, max_workers=1) # 确保每次只处理一个插件
+        batch_download(extensions, output_dir, max_workers=max_workers)
     except Exception as e:
         logging.error(f"程序运行失败: {str(e)}")
         print(f"\n错误: {str(e)}")
